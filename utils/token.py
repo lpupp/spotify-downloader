@@ -33,7 +33,8 @@ class AccessToken:
             'Sec-Fetch-Site': 'same-origin',
             'Spotify-App-Version': '1.2.33.0-unknown',
             'TE': 'trailers',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0',
+            #'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
         }, params=params)
         request.raise_for_status()
         json = request.json()

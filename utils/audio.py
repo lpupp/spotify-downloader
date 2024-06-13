@@ -30,7 +30,8 @@ class Audio:
             'Sec-Fetch-Site': 'same-site',
             'Sec-GPC': '1',
             'TE': 'Trailers',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0',
+            #'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
         }
         request = requests.get(url, headers=headers)
         request.raise_for_status()
@@ -61,7 +62,8 @@ class Audio:
             'Sec-Fetch-Site': 'same-site',
             'Sec-GPC': '1',
             'TE': 'Trailers',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0',
+            #'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
         }
         request = requests.get(url, params=params, headers=headers)
         request.raise_for_status()

@@ -11,10 +11,11 @@ import argparse
 from utils.token import AccessToken
 from librespot.metadata import TrackId
 
-parser = argparse.ArgumentParser(
-                    prog='Spotify Downloader',
-                    description='it downloads spotify songs')
-parser.add_argument('track_id', type=str, help='The track id of the song. Public IDs, GIDs and Spotify URIs are supported')
+import pandas as pd
+
+parser = argparse.ArgumentParser(prog='Spotify Downloader', description='it downloads spotify songs')
+# parser.add_argument('track_id', type=str, help='The track id of the song. Public IDs, GIDs and Spotify URIs are supported')
+parser.add_argument('playlist_csv', type=str, help='The csv of spotify playlist to download. Retrieved using https://www.tunemymusic.com/.')
 parser.add_argument('--add-metadata', type=bool,
                     help='Should add metadata to the song? (like artists, album, cover, etc). Defaults to false.',
                     default=False, required=False)
@@ -48,80 +49,83 @@ if __name__ == '__main__':
     else:
         user_token = open('spotify_dc.txt', 'r').read()
 
-    track_id = args.track_id
+    playlist_csv = args.playlist_csv
+    df = pd.read_csv(playlist_csv)
 
-    if len(track_id) == 22:
-        track_id = TrackId.from_base62(track_id).get_gid().hex()
-    elif 'spotify:track:' in track_id:
-        track_id = TrackId.from_base62(track_id.replace('spotify:track:', '')).get_gid().hex()
+    for track_id in df['Spotify - id']:
+        if len(track_id) == 22:
+            track_id = TrackId.from_base62(track_id).get_gid().hex()
+        elif 'spotify:track:' in track_id:
+            track_id = TrackId.from_base62(track_id.replace('spotify:track:', '')).get_gid().hex()
 
-    token = AccessToken()
-    audio = Audio()
-    metadata = Metadata()
-    try:
-        track = audio.get_track(track_id)
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 401:
-            token.refresh()
-            track = audio.get_track(track_id)
-        else:
-            print('Error:', e)
-            exit(1)
-
-    def find_quality(track, quality):
-        for file in track['file']:
-            if file['format'] == quality:
-                return file
-        return None
-
-    pssh = PSSH(requests.get(f"https://seektables.scdn.co/seektable/{track['file'][4]['file_id']}.json").json()['pssh'])
-    device = Device.load('device.wvd')
-    cdm = Cdm.from_device(device)
-    session_id = cdm.open()
-
-    challenge = cdm.get_license_challenge(session_id, pssh)
-    license = requests.post(audio.license_url, headers={
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'en',
-        'authorization': f'Bearer {AccessToken().access_token()}',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-    }, data=challenge)
-    license.raise_for_status()
-
-    cdm.parse_license(session_id, license.content)
-
-    cdn_file = find_quality(track, args.quality)
-    url = audio.get_audio_urls(cdn_file['file_id'])[0]
-    audio = requests.get(url)
-    audio.raise_for_status()
-    audio_type = cdn_file['format'].split('_')[0].lower().replace('mp4', 'm4a')
-    audio_file = abspath(f"./{track['name']}-encrypted.{audio_type}")
-    audio_file_decrypted = abspath(f"./{track['name']}.{audio_type}")
-
-    if isfile(audio_file):
-        remove(audio_file)
-    if isfile(audio_file_decrypted):
-        remove(audio_file_decrypted)
-
-    with open(audio_file, 'wb') as file:
-        file.write(audio.content)
-        file.close()
-
-    for key in cdm.get_keys(session_id):
+        token = AccessToken()
+        audio = Audio()
+        metadata = Metadata()
         try:
-            path = args.ffmpeg_path if isinstance(args.ffmpeg_path, str) else 'ffmpeg'
-            cmd = [
-                path, '-decryption_key', key.key.hex(), '-i', audio_file, audio_file_decrypted
-            ]
-            subprocess.run(cmd, stdout=None, stderr=None, stdin=None, shell=False, check=True)
-        except Exception as e:
-            print('Error:', e)
-            exit(1)
-    cdm.close(session_id)
+            track = audio.get_track(track_id)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                token.refresh()
+                track = audio.get_track(track_id)
+            else:
+                print('Error:', e)
+                exit(1)
 
-    remove(audio_file)
+        def find_quality(track, quality):
+            for file in track['file']:
+                if file['format'] == quality:
+                    return file
+            return None
 
-    if args.add_metadata == True:
-        print('Adding metadata to the song...')
-        metadata.set_metadata(track, audio_file_decrypted)
+        pssh = PSSH(requests.get(f"https://seektables.scdn.co/seektable/{track['file'][4]['file_id']}.json").json()['pssh'])
+        device = Device.load('device.wvd')
+        cdm = Cdm.from_device(device)
+        session_id = cdm.open()
+
+        challenge = cdm.get_license_challenge(session_id, pssh)
+        license = requests.post(audio.license_url, headers={
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en',
+            'authorization': f'Bearer {AccessToken().access_token()}',
+            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0',
+            # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+        }, data=challenge)
+        license.raise_for_status()
+
+        cdm.parse_license(session_id, license.content)
+
+        cdn_file = find_quality(track, args.quality)
+        url = audio.get_audio_urls(cdn_file['file_id'])[0]
+        audio = requests.get(url)
+        audio.raise_for_status()
+        audio_type = cdn_file['format'].split('_')[0].lower().replace('mp4', 'm4a')
+        audio_file = abspath(f"./{track['name']}-encrypted.{audio_type}")
+        audio_file_decrypted = abspath(f"./{track['name']}.{audio_type}")
+
+        if isfile(audio_file):
+            remove(audio_file)
+        if isfile(audio_file_decrypted):
+            remove(audio_file_decrypted)
+
+        with open(audio_file, 'wb') as file:
+            file.write(audio.content)
+            file.close()
+
+        for key in cdm.get_keys(session_id):
+            try:
+                path = args.ffmpeg_path if isinstance(args.ffmpeg_path, str) else 'ffmpeg'
+                cmd = [
+                    path, '-decryption_key', key.key.hex(), '-i', audio_file, audio_file_decrypted
+                ]
+                subprocess.run(cmd, stdout=None, stderr=None, stdin=None, shell=False, check=True)
+            except Exception as e:
+                print('Error:', e)
+                exit(1)
+        cdm.close(session_id)
+
+        remove(audio_file)
+
+        if args.add_metadata == True:
+            print('Adding metadata to the song...')
+            metadata.set_metadata(track, audio_file_decrypted)
